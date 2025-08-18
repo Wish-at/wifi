@@ -105,13 +105,16 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	iterations := 3
-	expectedValueSession := 150.0
+	expectedValueSession := 200.0
 	expectedValueT0 := 60.0
 	expectedValueT1 := 40.0
 	wifiSpeed := 200.0  // Mbps
 	mobileSpeed := 50.0 // Mbps
 	alpha := 2.0        // shape
-	xm := 500.0         // minimum file size MB
+	xm := 2500.0        // minimum file size
+	AvgRemainFailure := 0.0
+	deadline := 0
+	totalb := 0.0
 
 	for i := 1; i <= iterations; i++ {
 
@@ -142,15 +145,42 @@ func main() {
 		// Run simulation
 		SimulateDownload(states, wifiSpeed, mobileSpeed)
 
+		// count of state
+		connectCount := 0
+		disconnectCount := 0
+		for _, s := range states {
+			if s.state == "Connect" {
+				connectCount++
+				totalb = totalb + (wifiSpeed + mobileSpeed)
+			} else if s.state == "Disconnect" {
+				disconnectCount++
+				totalb = totalb + mobileSpeed
+			}
+		}
+		fmt.Println("=======================================================================")
+		fmt.Printf("Connect visited %d times\n",
+			connectCount)
+		fmt.Printf("Disconnect visited %d times\n",
+			disconnectCount)
+		fmt.Printf("Total Bandwidth used: %.2f Mbps\n", totalb)
+
 		// Final status
 		fmt.Println("=======================================================================")
 		if remainingSize > 0 {
 			fmt.Println("File Download Incomplete")
 			fmt.Printf("Total Downloaded: %.2f Mb (%.2f MB)\n", totalFileSizeMb-remainingSize, (totalFileSizeMb-remainingSize)/8)
 			fmt.Printf("Remaining: %.2f Mb (%.2f MB)\n", remainingSize, remainingSize/8)
+			AvgRemainFailure = AvgRemainFailure + remainingSize
+			deadline = deadline + 1
 		} else {
 			fmt.Println("File Download Complete")
-
 		}
+	}
+	if AvgRemainFailure > 0 {
+		fmt.Println("=======================================================================")
+		AvgRemainFailure = AvgRemainFailure / float64(iterations)
+		deadlineRatio := float64(deadline) / float64(iterations)
+		fmt.Printf("Average Remaining Size after %d iterations: %.2f Mb (%.2f MB)\n", iterations, AvgRemainFailure, AvgRemainFailure/8)
+		fmt.Printf("Deadline miss ratio after %d iterations: %.2f\n", iterations, deadlineRatio)
 	}
 }
