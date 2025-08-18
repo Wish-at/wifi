@@ -97,6 +97,21 @@ func Pareto(alpha, xm float64) float64 {
 	return xm / math.Pow(u, 1.0/alpha)
 }
 
+func MeasureBandwidth(states []State, speed float64) int {
+	totalb := 0.0
+	for _, s := range states {
+		if s.state == "Connect" {
+			totalb += speed
+		}
+
+	}
+
+	if totalb > 300 {
+		return 1
+	}
+	return 0
+}
+
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
@@ -107,6 +122,9 @@ func main() {
 	speed := 200.0 // Mbps
 	alpha := 2.0   // shape
 	xm := 500.0    // minimum file size MB
+	AvgRemainFailure := 0.0
+	deadline := 0
+	results := []int{}
 
 	for i := 1; i <= iterations; i++ {
 
@@ -127,6 +145,9 @@ func main() {
 		initialState := InitState(expectedValueT0, expectedValueT1)
 		states := GenerateBand(initialState, expectedValueT0, expectedValueT1, Ts)
 
+		flag := MeasureBandwidth(states, speed)
+		results = append(results, flag)
+		fmt.Printf("Iteration %d Bandwidth flag: %d\n", i, flag)
 		// Show generated states
 		// fmt.Println("Generated States:")
 		// for _, s := range states {
@@ -143,9 +164,30 @@ func main() {
 			fmt.Println("File Download Incomplete")
 			fmt.Printf("Total Downloaded: %.2f Mb (%.2f MB)\n", totalFileSizeMb-remainingSize, (totalFileSizeMb-remainingSize)/8)
 			fmt.Printf("Remaining: %.2f Mb (%.2f MB)\n", remainingSize, remainingSize/8)
+			AvgRemainFailure = AvgRemainFailure + remainingSize
+			deadline = deadline + 1
 		} else {
 			fmt.Println("\nFile Download Complete")
 
 		}
 	}
+	if AvgRemainFailure > 0 {
+		fmt.Println("=======================================================================")
+		AvgRemainFailure = AvgRemainFailure / float64(iterations)
+		deadlineRatio := float64(deadline) / float64(iterations)
+		fmt.Printf("Average Remaining Size after %d iterations: %.2f Mb (%.2f MB)\n", iterations, AvgRemainFailure, AvgRemainFailure/8)
+		fmt.Printf("Deadline miss ratio after %d iterations: %.2f\n", iterations, deadlineRatio)
+	}
+	// Calculate ratio of 1s in results
+
+	sum := 0
+	for _, v := range results {
+		sum += v
+	}
+	ratio := float64(sum) / float64(len(results))
+
+	// Print the flags array
+	fmt.Println("=======================================================================")
+	fmt.Println("Bandwidth Flags per Iteration:", results)
+	fmt.Printf("Ratio of iterations with bandwidth > 500: %.2f\n", ratio)
 }

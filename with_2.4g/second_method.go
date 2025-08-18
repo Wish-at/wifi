@@ -57,7 +57,6 @@ func GenerateBand(initialState string, expectedValueT0, expectedValueT1, Ts floa
 	return states
 }
 
-// SimulateDownload runs through each state and downloads if connected
 // SimulateDownload runs through each state and downloads depending on connection type
 func SimulateDownload(states []State, wifiSpeed, mobileSpeed float64) {
 	for i, s := range states {
@@ -96,16 +95,36 @@ func InitState(expectedValueT0, expectedValueT1 float64) string {
 	}
 	return "connect"
 }
+
 func Pareto(alpha, xm float64) float64 {
 	u := rand.Float64()
 	return xm / math.Pow(u, 1.0/alpha)
+}
+
+// === New Function ===
+// MeasureBandwidth checks if total bandwidth in an iteration exceeds 500
+// Returns 1 if yes, 0 if no
+func MeasureBandwidth(states []State, wifiSpeed, mobileSpeed float64) int {
+	totalb := 0.0
+	for _, s := range states {
+		if s.state == "Connect" {
+			totalb += (wifiSpeed + mobileSpeed)
+		} else if s.state == "Disconnect" {
+			totalb += mobileSpeed
+		}
+	}
+
+	if totalb > 500 {
+		return 1
+	}
+	return 0
 }
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	iterations := 3
-	expectedValueSession := 200.0
+	expectedValueSession := 150.0
 	expectedValueT0 := 60.0
 	expectedValueT1 := 40.0
 	wifiSpeed := 200.0  // Mbps
@@ -114,13 +133,12 @@ func main() {
 	xm := 2500.0        // minimum file size
 	AvgRemainFailure := 0.0
 	deadline := 0
-	totalb := 0.0
+
+	results := []int{} // to store bandwidth flags for each iteration
 
 	for i := 1; i <= iterations; i++ {
-
 		Ts := InverseCDFExponential(rand.Float64(), expectedValueSession)
 		fmt.Printf("\n================== Iteration %d ==================\n", i)
-		// fmt.Printf("\n		2nd method		\n")
 		fmt.Printf("\nSession Time: %.2f seconds\n", Ts)
 
 		fileSizeMB := Pareto(alpha, xm)
@@ -129,40 +147,17 @@ func main() {
 		fmt.Printf("File Size: %.2f MB (%.2f Mb)\n", fileSizeMB, totalFileSizeMb)
 		fmt.Println("=======================================================================")
 
-		// Speed of our single network
-
 		// Generate the connect/disconnect sequence
 		initialState := InitState(expectedValueT0, expectedValueT1)
 		states := GenerateBand(initialState, expectedValueT0, expectedValueT1, Ts)
 
-		// Show generated states
-		// fmt.Println("Generated States:")
-		// for _, s := range states {
-		// 	fmt.Printf("(%s, %.2f)\n", s.state, s.T)
-		// }
-		// fmt.Println("=======================================================================")
+		// === Bandwidth check ===
+		flag := MeasureBandwidth(states, wifiSpeed, mobileSpeed)
+		results = append(results, flag)
+		fmt.Printf("Iteration %d Bandwidth flag: %d\n", i, flag)
 
 		// Run simulation
 		SimulateDownload(states, wifiSpeed, mobileSpeed)
-
-		// count of state
-		connectCount := 0
-		disconnectCount := 0
-		for _, s := range states {
-			if s.state == "Connect" {
-				connectCount++
-				totalb = totalb + (wifiSpeed + mobileSpeed)
-			} else if s.state == "Disconnect" {
-				disconnectCount++
-				totalb = totalb + mobileSpeed
-			}
-		}
-		fmt.Println("=======================================================================")
-		fmt.Printf("Connect visited %d times\n",
-			connectCount)
-		fmt.Printf("Disconnect visited %d times\n",
-			disconnectCount)
-		fmt.Printf("Total Bandwidth used: %.2f Mbps\n", totalb)
 
 		// Final status
 		fmt.Println("=======================================================================")
@@ -176,6 +171,7 @@ func main() {
 			fmt.Println("File Download Complete")
 		}
 	}
+
 	if AvgRemainFailure > 0 {
 		fmt.Println("=======================================================================")
 		AvgRemainFailure = AvgRemainFailure / float64(iterations)
@@ -183,4 +179,17 @@ func main() {
 		fmt.Printf("Average Remaining Size after %d iterations: %.2f Mb (%.2f MB)\n", iterations, AvgRemainFailure, AvgRemainFailure/8)
 		fmt.Printf("Deadline miss ratio after %d iterations: %.2f\n", iterations, deadlineRatio)
 	}
+	// Calculate ratio of 1s in results
+
+	sum := 0
+	for _, v := range results {
+		sum += v
+	}
+	ratio := float64(sum) / float64(len(results))
+
+	// Print the flags array
+	fmt.Println("=======================================================================")
+	fmt.Println("Bandwidth Flags per Iteration:", results)
+	fmt.Printf("Ratio of iterations with bandwidth > 500: %.2f\n", ratio)
+
 }
