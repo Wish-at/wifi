@@ -105,8 +105,8 @@ func MeasureBandwidth(states []State, speed float64) int {
 		}
 
 	}
-
-	if totalb > 300 {
+	avgBandwidth := totalb / float64(len(states))
+	if avgBandwidth > 40 {
 		return 1
 	}
 	return 0
@@ -115,20 +115,20 @@ func MeasureBandwidth(states []State, speed float64) int {
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
-	iterations := 3
-	expectedValueSession := 150.0
-	expectedValueT0 := 60.0
-	expectedValueT1 := 40.0
-	speed := 200.0 // Mbps
-	alpha := 2.0   // shape
-	xm := 500.0    // minimum file size MB
+	iterations := 50000
+	expectedValueSession := 100.0
+	expectedValueT0 := 50.0
+	expectedValueT1 := 50.0
+	speed := 50.0       // Mbps
+	alpha := 25.0 / 3.0 // shape
+	xm := 220.0         // minimum file size MB
 	AvgRemainFailure := 0.0
 	deadline := 0
 	results := []int{}
 
 	for i := 1; i <= iterations; i++ {
 
-		Ts := InverseCDFExponential(rand.Float64(), expectedValueSession)
+		Ts := expectedValueSession
 		fmt.Printf("\n================== Iteration %d ==================\n", i)
 		// fmt.Printf("\n		1st method		\n")
 		fmt.Printf("\nSession Time: %.2f seconds\n", Ts)
@@ -176,7 +176,7 @@ func main() {
 		AvgRemainFailure = AvgRemainFailure / float64(iterations)
 		deadlineRatio := float64(deadline) / float64(iterations)
 		fmt.Printf("Average Remaining Size after %d iterations: %.2f Mb (%.2f MB)\n", iterations, AvgRemainFailure, AvgRemainFailure/8)
-		fmt.Printf("Deadline miss ratio after %d iterations: %.2f\n", iterations, deadlineRatio)
+		fmt.Printf("Deadline miss ratio(%d) after %d iterations: %.5f\n", deadline, iterations, deadlineRatio)
 	}
 	// Calculate ratio of 1s in results
 
@@ -188,6 +188,6 @@ func main() {
 
 	// Print the flags array
 	fmt.Println("=======================================================================")
-	fmt.Println("Bandwidth Flags per Iteration:", results)
-	fmt.Printf("Ratio of iterations with bandwidth > 500: %.2f\n", ratio)
+	// fmt.Println("Bandwidth Flags per Iteration:", results)
+	fmt.Printf("Ratio of iterations with bandwidth > 40: %.2f\n", ratio)
 }
