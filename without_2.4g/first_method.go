@@ -39,15 +39,27 @@ func GenerateBand(initialState string, expectedValueT0, expectedValueT1, Ts floa
 	for {
 		if currentState == "disconnect" {
 			t0 := InverseCDFExponential(rand.Float64(), expectedValueT0)
-			states = append(states, State{"Disconnect", t0})
-			if SumOfTinState(states) >= Ts {
+			if t0 > Ts {
+				t0 = Ts
+			}
+			if SumOfTinState(states)+t0 >= Ts {
+				remaining := Ts - SumOfTinState(states)
+				if remaining > 0 {
+					states = append(states, State{"Disconnect", remaining})
+				}
 				break
 			}
+			states = append(states, State{"Disconnect", t0})
 		} else {
 			t1 := InverseCDFExponential(rand.Float64(), expectedValueT1)
+			if t1 > Ts {
+				t1 = Ts
+			}
 			if SumOfTinState(states)+t1 >= Ts {
-				downloadable := Ts - SumOfTinState(states)
-				states = append(states, State{"Connect", downloadable})
+				remaining := Ts - SumOfTinState(states)
+				if remaining > 0 {
+					states = append(states, State{"Connect", remaining})
+				}
 				break
 			}
 			states = append(states, State{"Connect", t1})
@@ -116,9 +128,9 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	iterations := 50000
-	expectedValueSession := 100.0
+	expectedValueSession := 50.0
 	expectedValueT0 := 50.0
-	expectedValueT1 := 50.0
+	expectedValueT1 := 500.0
 	speed := 50.0       // Mbps
 	alpha := 25.0 / 3.0 // shape
 	xm := 220.0         // minimum file size MB
